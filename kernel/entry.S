@@ -4,8 +4,8 @@
         # 0x8000000, the _start function here,
         # in machine mode. each CPU starts here.
 .section .data
-.globl stack0
-.section .text
+.globl stack0 # 让 stack 0 public
+.section .text 
 .globl start
 .section .text
 .globl _entry

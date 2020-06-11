@@ -1,6 +1,6 @@
 Vagrant.configure(2) do |config|
 
-  config.vm.box = 'generic/arch'
+  config.vm.box = 'archlinux/archlinux'
 
   # synced folder
   config.vm.synced_folder '.', '/xv6'
