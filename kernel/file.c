@@ -16,13 +16,15 @@
 struct devsw devsw[NDEV];
 struct {
   struct spinlock lock;
-  struct file file[NFILE];
+  
+  int file_cnt;
 } ftable;
 
 void
 fileinit(void)
 {
   initlock(&ftable.lock, "ftable");
+  ftable.file_cnt = 0;
 }
 
 // Allocate a file structure.
@@ -32,12 +34,17 @@ filealloc(void)
   struct file *f;
 
   acquire(&ftable.lock);
-  for(f = ftable.file; f < ftable.file + NFILE; f++){
-    if(f->ref == 0){
-      f->ref = 1;
-      release(&ftable.lock);
-      return f;
-    }
+  f = bd_malloc(sizeof(struct file));
+  // bd_malloc doesn't clear the memory it returns; 
+  // instead, allocated memory starts out with whatever content it had from its last use.
+  // Callers should not assume that it starts out containing zeroes.
+  
+  if (f != nullptr) {
+    memset(f, 0, sizeof(struct file));
+    f->ref = 1;
+    ftable.file_cnt++;
+    release(&ftable.lock);
+    return f;
   }
   release(&ftable.lock);
   return 0;
@@ -71,7 +78,6 @@ fileclose(struct file *f)
   ff = *f;
   f->ref = 0;
   f->type = FD_NONE;
-  release(&ftable.lock);
 
   if(ff.type == FD_PIPE){
     pipeclose(ff.pipe, ff.writable);
@@ -80,6 +86,8 @@ fileclose(struct file *f)
     iput(ff.ip);
     end_op(ff.ip->dev);
   }
+  bd_free(f);
+  release(&ftable.lock);
 }
 
 // Get metadata about file f.
@@ -175,4 +183,3 @@ filewrite(struct file *f, uint64 addr, int n)
 
   return ret;
 }
-
