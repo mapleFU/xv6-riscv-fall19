@@ -79,6 +79,8 @@ fileclose(struct file *f)
   f->ref = 0;
   f->type = FD_NONE;
 
+  bd_free(f);
+  release(&ftable.lock);
   if(ff.type == FD_PIPE){
     pipeclose(ff.pipe, ff.writable);
   } else if(ff.type == FD_INODE || ff.type == FD_DEVICE){
@@ -86,8 +88,6 @@ fileclose(struct file *f)
     iput(ff.ip);
     end_op(ff.ip->dev);
   }
-  bd_free(f);
-  release(&ftable.lock);
 }
 
 // Get metadata about file f.
