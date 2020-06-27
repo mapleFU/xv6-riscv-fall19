@@ -53,8 +53,8 @@ usertrap(void)
   // 15 means Store/AMO page fault
   if (r_scause() == 15 || r_scause() == 13) {
     int va = r_stval();
-    if (va >= p->sz) {
-        printf("va is %p, p->sz is %p\n", va, p->sz);
+    if (va >= p->sz || va < 0) {
+        printf("address to large: va is %p, p->sz is %p\n", va, p->sz);
         printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
         printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
         p->killed = 1;
@@ -63,7 +63,7 @@ usertrap(void)
         int page_init = PGROUNDDOWN(va);
         pagetable_t check_ptr = walk(p->pagetable, va, 0);
         if (check_ptr != 0 && (*check_ptr & PTE_V) && !(*check_ptr & PTE_U)) {
-            printf("va is %p, p->sz is %p\n", va, p->sz);
+            printf("check_ptr already exists: va is %p, p->sz is %p\n", va, p->sz);
             printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
             printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
             p->killed = 1;

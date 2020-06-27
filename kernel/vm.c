@@ -5,6 +5,9 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "spinlock.h"
+#include "proc.h"
+
 
 /*
  * the kernel's page table.
@@ -133,14 +136,60 @@ walkaddr(pagetable_t pagetable, uint64 va)
     return 0;
 
   pte = walk(pagetable, va, 0);
-  if(pte == 0)
-    return 0;
-  if((*pte & PTE_V) == 0)
-    return 0;
-  if((*pte & PTE_U) == 0)
-    return 0;
+  if(pte == 0) {
+      return 0;
+  }
+  if((*pte & PTE_V) == 0) {
+      return 0;
+  }
+  if((*pte & PTE_U) == 0) {
+      return 0;
+  }
   pa = PTE2PA(*pte);
   return pa;
+}
+
+uint64
+walkaddr_with_alloc(pagetable_t pagetable, uint64 va) {
+    pte_t *pte;
+    uint64 pa;
+
+    if(va >= MAXVA)
+        return 0;
+
+    pte = walk(pagetable, va, 0);
+    if(pte == 0) {
+        return 0;
+    }
+    if((*pte & PTE_U) == 0 && (*pte & PTE_V) != 0) {
+        return 0;
+    }
+
+    pa = PTE2PA(*pte);
+
+    if (myproc() != 0 && myproc()->sz <= va) {
+        printf("myproc()->sz %p, va %p\n", myproc()->sz, va);
+        return pa;
+    }
+
+    if((*pte & PTE_V) == 0) {
+        int page_init = PGROUNDDOWN(va);
+//        pagetable_t check_ptr = walk(p->pagetable, va, 0);
+        char *mem = kalloc();
+        if(mem != 0){
+            memset(mem, 0, PGSIZE);
+            if(mappages(pagetable, page_init, PGSIZE, (uint64)mem, PTE_W|PTE_X|PTE_R|PTE_U) != 0) {
+                printf("fucking panic\n");
+                kfree(mem);
+                exit(-1);
+            }
+            pa = (uint64) mem;
+        } else {
+            printf("kalloc failed\n");
+            exit(-1);
+        }
+    }
+    return pa;
 }
 
 // add a mapping to the kernel page table.
@@ -410,7 +459,7 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
 
   while(len > 0){
     va0 = PGROUNDDOWN(dstva);
-    pa0 = walkaddr(pagetable, va0);
+    pa0 = walkaddr_with_alloc(pagetable, va0);
     if(pa0 == 0)
       return -1;
     n = PGSIZE - (dstva - va0);
@@ -435,9 +484,11 @@ copyin(pagetable_t pagetable, char *dst, uint64 srcva, uint64 len)
 
   while(len > 0){
     va0 = PGROUNDDOWN(srcva);
-    pa0 = walkaddr(pagetable, va0);
-    if(pa0 == 0)
-      return -1;
+    pa0 = walkaddr_with_alloc(pagetable, va0);
+    if(pa0 == 0) {
+        printf("failed because walkaddr return 0\n");
+        return -1;
+    }
     n = PGSIZE - (srcva - va0);
     if(n > len)
       n = len;
@@ -462,7 +513,7 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
 
   while(got_null == 0 && max > 0){
     va0 = PGROUNDDOWN(srcva);
-    pa0 = walkaddr(pagetable, va0);
+    pa0 = walkaddr_with_alloc(pagetable, va0);
     if(pa0 == 0)
       return -1;
     n = PGSIZE - (srcva - va0);
