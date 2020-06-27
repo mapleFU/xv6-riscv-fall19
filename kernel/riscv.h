@@ -322,8 +322,9 @@ sfence_vma()
 
 #define PGSIZE 4096 // bytes per page
 #define PGSHIFT 12  // bits of offset within a page
-
+// 补齐到 page 大小
 #define PGROUNDUP(sz)  (((sz)+PGSIZE-1) & ~(PGSIZE-1))
+// 保留成 page 的倍数
 #define PGROUNDDOWN(a) (((a)) & ~(PGSIZE-1))
 
 #define PTE_V (1L << 0) // valid

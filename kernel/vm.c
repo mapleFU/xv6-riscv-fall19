@@ -8,6 +8,7 @@
 
 /*
  * the kernel's page table.
+ * pagetable_t is just like uint64*.
  */
 pagetable_t kernel_pagetable;
 
@@ -25,6 +26,7 @@ void print(pagetable_t);
 void
 kvminit()
 {
+  // allocates a page of physical memory to hold the root page-table page.
   kernel_pagetable = (pagetable_t) kalloc();
   memset(kernel_pagetable, 0, PGSIZE);
 
@@ -60,6 +62,7 @@ void
 kvminithart()
 {
   w_satp(MAKE_SATP(kernel_pagetable));
+  // flush TLB.
   sfence_vma();
 }
 
@@ -80,18 +83,22 @@ walk(pagetable_t pagetable, uint64 va, int alloc)
 {
   if(va >= MAXVA)
     panic("walk");
-
+  // Sv39 页目录最高是两级，进行查找
   for(int level = 2; level > 0; level--) {
     pte_t *pte = &pagetable[PX(level, va)];
+    // 如果 pte 存在，并且是 valid 的
+    // 开始都是不 valid 的
     if(*pte & PTE_V) {
       pagetable = (pagetable_t)PTE2PA(*pte);
     } else {
+      // If alloc!=0, try to allocate, else return 0.
       if(!alloc || (pagetable = (pde_t*)kalloc()) == 0)
         return 0;
       memset(pagetable, 0, PGSIZE);
       *pte = PA2PTE(pagetable) | PTE_V;
     }
   }
+  // 已经是 0 层了，返回具体的。
   return &pagetable[PX(0, va)];
 }
 
@@ -152,6 +159,11 @@ kvmpa(uint64 va)
 // physical addresses starting at pa. va and size might not
 // be page-aligned. Returns 0 on success, -1 if walk() couldn't
 // allocate a needed page-table page.
+// 
+// pa: physical address.
+// va: virtual address.
+// perm: perm flags.
+// a PTE maybe: EXT | addresses | perm_flags
 int
 mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
 {
@@ -163,6 +175,7 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
   for(;;){
     if((pte = walk(pagetable, a, 1)) == 0)
       return -1;
+    // already mapped it.
     if(*pte & PTE_V)
       panic("remap");
     *pte = PA2PTE(pa) | perm | PTE_V;

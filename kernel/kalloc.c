@@ -2,6 +2,12 @@
 // kernel stacks, page-table pages,
 // and pipe buffers. Allocates whole 4096-byte pages.
 
+// xv6 uses the physical memory between the end of the kernel and PHYSTOP for run-time allocation.
+// It allocates and frees whole 4096-byte pages at a time.
+// It keeps track of which pages are free by threading a linked list through the pages themselves.
+// Allocation consists of removing a page from the linked list;
+//  freeing consists of adding the freed page to the list.
+
 #include "types.h"
 #include "param.h"
 #include "memlayout.h"
