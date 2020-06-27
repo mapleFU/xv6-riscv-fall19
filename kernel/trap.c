@@ -49,8 +49,32 @@ usertrap(void)
   
   // save user program counter.
   p->tf->epc = r_sepc();
-  
-  if(r_scause() == 8){
+  // 13 means Load page fault
+  // 15 means Store/AMO page fault
+  if (r_scause() == 15 || r_scause() == 13) {
+    int va = r_stval();
+    if (va >= p->sz) {
+        printf("va is %p, p->sz is %p\n", va, p->sz);
+        printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+        printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
+        p->killed = 1;
+    } else if (va != 0) {
+        // the page number of the va.
+        int page_init = PGROUNDDOWN(va);
+        char *mem = kalloc();
+        if(mem != 0){
+            memset(mem, 0, PGSIZE);
+            if(mappages(p->pagetable, page_init, PGSIZE, (uint64)mem, PTE_W|PTE_X|PTE_R|PTE_U) != 0) {
+                printf("fucking panic\n");
+                kfree(mem);
+                exit(-1);
+            }
+        } else {
+            printf("kalloc failed\n");
+            exit(-1);
+        }
+    }
+  } else if(r_scause() == 8){
     // system call
 
     if(p->killed)
@@ -73,8 +97,10 @@ usertrap(void)
     p->killed = 1;
   }
 
-  if(p->killed)
-    exit(-1);
+  if(p->killed) {
+      exit(-1);
+  }
+
 
   // give up the CPU if this is a timer interrupt.
   if(which_dev == 2)

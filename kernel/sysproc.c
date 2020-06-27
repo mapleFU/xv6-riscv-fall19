@@ -46,9 +46,14 @@ sys_sbrk(void)
 
   if(argint(0, &n) < 0)
     return -1;
+  // 拿到 proc 的 size
   addr = myproc()->sz;
-  if(growproc(n) < 0)
-    return -1;
+  if (n < 0) {
+      uvmunmap(myproc()->pagetable, addr + n, addr, 1);
+  }
+  myproc()->sz += n;
+//  printf("sys_sbrk change myproc()->sz to %p, add %d\n", addr, n);
+
   return addr;
 }
 
