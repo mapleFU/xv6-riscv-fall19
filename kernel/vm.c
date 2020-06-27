@@ -188,6 +188,7 @@ mappages(pagetable_t pagetable, uint64 va, uint64 size, uint64 pa, int perm)
   for(;;){
     if((pte = walk(pagetable, a, 1)) == 0)
       return -1;
+    // Note: here may panic that the address is remap.
     if(*pte & PTE_V)
       panic("remap");
     *pte = PA2PTE(pa) | perm | PTE_V;
@@ -224,6 +225,9 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 size, int do_free)
     if((*pte & PTE_V) == 0){
 //      printf("uvmunmap unmap: va=%p pte=%p\n", a, *pte);
       skip_free = 1;
+    }
+    if ((*pte & PTE_U) == 0) {
+        skip_free = 1;
     }
     if(PTE_FLAGS(*pte) == PTE_V)
       panic("uvmunmap: not a leaf");
@@ -359,10 +363,13 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
-    if((pte = walk(old, i, 0)) == 0)
-      panic("uvmcopy: pte should exist");
-    if((*pte & PTE_V) == 0)
-      panic("uvmcopy: page not present");
+    if((pte = walk(old, i, 0)) == 0) {
+        continue;
+    }
+    if((*pte & PTE_V) == 0) {
+        // continue, not need to kalloc()
+        continue;
+    }
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
     if((mem = kalloc()) == 0)

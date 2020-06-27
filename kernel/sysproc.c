@@ -50,7 +50,7 @@ sys_sbrk(void)
   addr = myproc()->sz;
   if (n < 0) {
       printf("n < 0, call uvmunmap\n");
-      uvmunmap(myproc()->pagetable, addr + n, addr, 1);
+      uvmdealloc(myproc()->pagetable, addr, addr + n);
   }
   myproc()->sz += n;
 //  printf("sys_sbrk change myproc()->sz to %p, add %d\n", addr, n);
