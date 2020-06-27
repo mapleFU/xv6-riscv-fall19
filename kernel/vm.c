@@ -213,10 +213,11 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 size, int do_free)
   last = PGROUNDDOWN(va + size - 1);
 
   for(;;){
-
+    // note: if page a is never created, it's not necessary to free it, just skip lt is ok.
     if((pte = walk(pagetable, a, 0)) == 0) {
-        vmprint(pagetable);
-        panic("uvmunmap: walk");
+//        vmprint(pagetable);
+//        panic("uvmunmap: walk");
+        goto next;
     }
     int skip_free = 0;
     // 是一个 unmap 的页面，在程序这里是 lazy 页
@@ -232,10 +233,11 @@ uvmunmap(pagetable_t pagetable, uint64 va, uint64 size, int do_free)
       kfree((void*)pa);
     }
     *pte = 0;
-    if(a == last)
-      break;
-    a += PGSIZE;
-    pa += PGSIZE;
+    next:
+      if(a == last)
+        break;
+      a += PGSIZE;
+      pa += PGSIZE;
   }
 }
 
