@@ -49,6 +49,9 @@ sys_sbrk(void)
   // 拿到 proc 的 size
   addr = myproc()->sz;
   if (n < 0) {
+      if (myproc()->sz + n < 0) {
+          return -1;
+      }
       printf("n < 0, call uvmunmap\n");
       uvmdealloc(myproc()->pagetable, addr, addr + n);
   }

@@ -61,6 +61,14 @@ usertrap(void)
     } else if (va != 0) {
         // the page number of the va.
         int page_init = PGROUNDDOWN(va);
+        pagetable_t check_ptr = walk(p->pagetable, va, 0);
+        if (check_ptr != 0 && (*check_ptr & PTE_V) && !(*check_ptr & PTE_U)) {
+            printf("va is %p, p->sz is %p\n", va, p->sz);
+            printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+            printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
+            p->killed = 1;
+            goto fin;
+        }
         char *mem = kalloc();
         if(mem != 0){
             memset(mem, 0, PGSIZE);
@@ -96,7 +104,7 @@ usertrap(void)
     printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
     p->killed = 1;
   }
-
+fin:
   if(p->killed) {
       exit(-1);
   }
